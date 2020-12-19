@@ -1,0 +1,68 @@
+#!/usr/bin/python3
+import getpass
+import datetime
+import sys
+import argparse
+import redminelib
+from uptime import boottime
+
+ap = argparse.ArgumentParser()
+ap.add_argument("-k", "--api-key", help="API key provided by Redmine.", required=True)
+ap.add_argument("-p", "--planned", help="Number of hours you should do before going home.", required=True)
+ap.add_argument("-b", "--breaks", help="Number of hours you should take as break within the planned time. Defaults 0.", default=0)
+ap.add_argument("-a", "--arrived", help="""Local time of arrival today.
+        Use ISO time format '2020-12-16 05:23' or anything else datetime.fromisoformat() can parse.
+        Falls back to local machine's boot time if not given.""")
+ap.add_argument("url", help="Redmine URL to use.")
+args = ap.parse_args()
+
+
+arrived = boottime()
+if args.arrived is not None:
+    try:
+        arrived = datetime.fromisoformat(args.arrived)
+    except:
+        pass
+
+now = datetime.datetime.now()
+
+booked = datetime.timedelta(0)
+try:
+    redmine = redminelib.Redmine(args.url,
+                                 username=getpass.getuser(),
+                                 key=args.api_key)
+
+    uid = redmine.user.get('current').id
+    timesheet = redmine.time_entry.filter(from_date=arrived,
+                                          to_date=now,
+                                          user_id=uid)
+    timesheet.get(0)
+    booked = datetime.timedelta(hours=sum( (t.hours for t in timesheet) ))
+except:
+    pass
+
+planned = datetime.timedelta(hours=float(args.planned))
+breaks = datetime.timedelta(hours=float(args.breaks))
+time_on = now - arrived
+
+leave = arrived + planned + breaks
+rest = planned - booked
+
+if (booked >= planned) or (leave < now):
+    leave = "NOW"
+else:
+    leave = leave.strftime('%H:%M')
+
+def deltaHM(td):
+    H = td.total_seconds() / 3600
+    M = (td.total_seconds() - H * 3600) / 60
+    return "{:02.0f}:{:02.0f}".format(H,M)
+
+print("""Leave by {} and book {} more time.
+
+You arrived: {}
+Plan       : {} + {} break
+You are    : {} into your day.
+Booked     : {}""".format(leave, deltaHM(rest), arrived, deltaHM(planned),
+                          deltaHM(breaks), deltaHM(time_on), deltaHM(booked)))
+
