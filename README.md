@@ -31,7 +31,16 @@ Linux desktop environmet.
 ## Dependencies
 
 It's written for python 3 and has some library dependencies:
-- `uptime` for platform-independent way to get the system boot time.
+- `uptime` for platform-independent way to get the system boot time. \\
   Get it via `pip3 install uptime`.
-- `redminelib` if you want the redmine-features to work.
+- `redminelib` if you want the redmine-features to work. \\
   Get from Debian packet sources with `sudo apt install python3-redminelib`.
+
+## Ideas for the Future
+
+Here are some ideas on how to improve this:
+- Daemonization and popup notification for going home. \\
+  This can be scripted for now using chron and notify-send or something.
+- Persistent config file.
+- Support for Redmine user-password access as well.
+- Support for other task management systems that allow time tracking.
