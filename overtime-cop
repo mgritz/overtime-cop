@@ -3,49 +3,64 @@ import getpass
 import datetime
 import sys
 import argparse
-import redminelib
-from uptime import boottime
+
+redmine_available = False
+try:
+    import redminelib
+    redmine_available = True
+except ImportError:
+    pass
+
+uptime_available = False
+try:
+    from uptime import boottime
+    uptime_available = True
+except ImportError:
+    pass
 
 ap = argparse.ArgumentParser()
-ap.add_argument("-k", "--api-key", help="API key provided by Redmine.", required=True)
 ap.add_argument("-p", "--planned", help="Number of hours you should do before going home.", required=True)
 ap.add_argument("-b", "--breaks", help="Number of hours you should take as break within the planned time. Defaults 0.", default=0)
 ap.add_argument("-a", "--arrived", help="""Local time of arrival today.
         Use ISO time format '2020-12-16 05:23' or anything else datetime.fromisoformat() can parse.
-        Falls back to local machine's boot time if not given.""")
-ap.add_argument("url", help="Redmine URL to use.")
+        Mandatory if python uptime module is not installed.
+        Falls back to local machine's boot time if not given.""",
+        required=(not uptime_available))
+if redmine_available:
+    ap.add_argument("-r", "--redmine-url", help="Redmine URL to use.")
+    ap.add_argument("-k", "--api-key", help="API key provided by Redmine.")
 args = ap.parse_args()
-
-
-arrived = boottime()
-if args.arrived is not None:
-    try:
-        arrived = datetime.fromisoformat(args.arrived)
-    except:
-        pass
-
-now = datetime.datetime.now()
-
-booked = datetime.timedelta(0)
-try:
-    redmine = redminelib.Redmine(args.url,
-                                 username=getpass.getuser(),
-                                 key=args.api_key)
-
-    uid = redmine.user.get('current').id
-    timesheet = redmine.time_entry.filter(from_date=arrived,
-                                          to_date=now,
-                                          user_id=uid)
-    timesheet.get(0)
-    booked = datetime.timedelta(hours=sum( (t.hours for t in timesheet) ))
-except:
-    pass
 
 planned = datetime.timedelta(hours=float(args.planned))
 breaks = datetime.timedelta(hours=float(args.breaks))
-time_on = now - arrived
+
+if args.arrived is not None:
+    arrived = datetime.datetime.fromisoformat(args.arrived)
+elif uptime_available:
+    arrived = boottime()
 
 leave = arrived + planned + breaks
+
+now = datetime.datetime.now()
+time_on = now - arrived
+
+booked = datetime.timedelta(0)
+if redmine_available:
+    try:
+        redmine = redminelib.Redmine(args.redmine_url,
+                                    username=getpass.getuser(),
+                                    key=args.api_key)
+
+        uid = redmine.user.get('current').id
+        timesheet = redmine.time_entry.filter(from_date=arrived,
+                                            to_date=now,
+                                            user_id=uid)
+        timesheet.get(0)
+        booked = datetime.timedelta(hours=sum( (t.hours for t in timesheet) ))
+    except Exception as e:
+        sys.stderr.write("Redmine access failed because of {}\n".format(e))
+        redmine_available = False
+
 rest = planned - booked
 
 if (booked >= planned) or (leave < now):
@@ -58,11 +73,18 @@ def deltaHM(td):
     M = (td.total_seconds() - H * 3600) / 60
     return "{:02.0f}:{:02.0f}".format(H,M)
 
-print("""Leave by {} and book {} more time.
+headline = "Leave by {}".format(leave)
+if redmine_available:
+    headline += " and book {} more time".format(deltaHM(rest))
+
+output = """{}
 
 You arrived: {}
 Plan       : {} + {} break
 You are    : {} into your day.
-Booked     : {}""".format(leave, deltaHM(rest), arrived, deltaHM(planned),
-                          deltaHM(breaks), deltaHM(time_on), deltaHM(booked)))
+""".format(headline, arrived, deltaHM(planned), deltaHM(breaks), deltaHM(time_on))
 
+if redmine_available:
+    output += "Booked     : {}".format(deltaHM(booked))
+
+sys.stdout.write(output + "\n")

@@ -19,7 +19,7 @@ It assumes that your day started when you last bootet your computer. You can
 pass in any other time of arrival thorugh the `--arrived '2020-12-20 07:30'`.
 
 If your company uses a Redmine task management system to log your hours there is
-more: Pass your companies Redmine `--url` and your personal Redmine API `--key`
+more: Pass your companies `--redmine-url` and your personal Redmine API `--key`
 and it will look up the number of hours you have booked so far and tell you about
 that as well.
 
