@@ -19,8 +19,8 @@ except ImportError:
     pass
 
 ap = argparse.ArgumentParser()
-ap.add_argument("-p", "--planned", help="Number of hours you should do before going home.", required=True)
-ap.add_argument("-b", "--breaks", help="Number of hours you should take as break within the planned time. Defaults 0.", default=0)
+ap.add_argument("-p", "--planned", type=float, help="Number of hours you should do before going home.", required=True)
+ap.add_argument("-b", "--breaks", type=float, help="Number of hours you should take as break within the planned time. Defaults 0.", default=0)
 ap.add_argument("-a", "--arrived", help="""Local time of arrival today.
         Use ISO time format '2020-12-16 05:23' or anything else datetime.fromisoformat() can parse.
         Mandatory if python uptime module is not installed.
@@ -31,8 +31,8 @@ if redmine_available:
     ap.add_argument("-k", "--api-key", help="API key provided by Redmine.")
 args = ap.parse_args()
 
-planned = datetime.timedelta(hours=float(args.planned))
-breaks = datetime.timedelta(hours=float(args.breaks))
+planned = datetime.timedelta(hours=args.planned)
+breaks = datetime.timedelta(hours=args.breaks)
 
 if args.arrived is not None:
     arrived = datetime.datetime.fromisoformat(args.arrived)
@@ -69,8 +69,8 @@ else:
     leave = leave.strftime('%H:%M')
 
 def deltaHM(td):
-    H = td.total_seconds() / 3600
-    M = (td.total_seconds() - H * 3600) / 60
+    H = td.total_seconds() // 3600
+    M = (td.total_seconds() - H * 3600) // 60
     return "{:02.0f}:{:02.0f}".format(H,M)
 
 headline = "Leave by {}".format(leave)
